@@ -12,19 +12,25 @@ pipeline {
 
         stage('Build App') {
             steps {
-                buildApp()
+                script {
+                    buildApp()
+                }
             }
         }
 
         stage('Build Image, Scan and Push') {
             steps {
-                buildImage()
+                script {
+                    buildImage()
+                }
             }
         }
 
         stage('Update Manifest for Argo CD') {
             steps {
-                deployOnK8s()
+                script {
+                    deployOnK8s()
+                }
             }
         }
     }
