@@ -50,7 +50,7 @@ spec:
               value: ivolvedbsvc
       containers:
         - name: ivolve-app
-          image: abdelazizamer/ivolve-app:1
+          image: abdelazizamer/ivolve-app:9
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
