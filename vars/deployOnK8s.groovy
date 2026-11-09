@@ -1,46 +1,55 @@
-@Library('ivolve-lab23') _
+def call(Map config = [:]) {
+    def imageRepo = config.imageRepo ?: 'abdelazizamer/ivolve-app'
+    def githubCredentialsId = config.githubCredentialsId ?: 'github-write-creds'
+    def targetBranch = config.branch ?: 'main'
 
-pipeline {
-    agent { label 'lab22-agent' }
+    withEnv([
+        "IMAGE_REPO=${imageRepo}",
+        "IMAGE_TAG=${env.BUILD_NUMBER}",
+        "TARGET_BRANCH=${targetBranch}"
+    ]) {
+        withCredentials([usernamePassword(
+            credentialsId: githubCredentialsId,
+            usernameVariable: 'GIT_USERNAME',
+            passwordVariable: 'GIT_TOKEN'
+        )]) {
+            sh '''
+                set -eu
+                set +x
 
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
+                manifest='k8s/deployment.yaml'
+                if ! grep -Eq '^[[:space:]]*image:[[:space:]]*[^[:space:]]*ivolve-app:' "$manifest"; then
+                    echo "Could not find the ivolve-app image in $manifest" >&2
+                    exit 1
+                fi
 
-        stage('Build App') {
-            steps {
-                script {
-                    buildApp.call()
-                }
-            }
-        }
+                sed -i -E "s#(^[[:space:]]*image:[[:space:]]*)[^[:space:]]*ivolve-app:[^[:space:]]+#\\1${IMAGE_REPO}:${IMAGE_TAG}#" "$manifest"
+                git diff --check -- "$manifest"
+                git add -- "$manifest"
 
-        stage('Build Image, Scan and Push') {
-            steps {
-                script {
-                    buildImage.call()
-                }
-            }
-        }
+                if git diff --cached --quiet; then
+                    echo "Manifest already references ${IMAGE_REPO}:${IMAGE_TAG}; nothing to push."
+                    exit 0
+                fi
 
-        stage('Update Manifest for Argo CD') {
-            steps {
-                script {
-                    deployOnK8s.call()
-                }
-            }
-        }
-    }
+                git config user.name 'Jenkins'
+                git config user.email 'jenkins@users.noreply.github.com'
+                git commit -m "chore: deploy ${IMAGE_REPO}:${IMAGE_TAG}"
 
-    post {
-        success {
-            echo 'Lab 23 GitOps pipeline completed successfully.'
-        }
-        failure {
-            echo 'Lab 23 GitOps pipeline failed. Check the Console Output.'
+                askpass="$(mktemp)"
+                trap 'rm -f "$askpass"' EXIT
+                cat > "$askpass" <<'ASKPASS_EOF'
+#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\\n' "$GIT_USERNAME" ;;
+  *) printf '%s\\n' "$GIT_TOKEN" ;;
+esac
+ASKPASS_EOF
+                chmod 700 "$askpass"
+                export GIT_ASKPASS="$askpass"
+                export GIT_TERMINAL_PROMPT=0
+                git push origin "HEAD:${TARGET_BRANCH}"
+            '''
         }
     }
 }
