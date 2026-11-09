@@ -1,4 +1,4 @@
-@Library('ivolve-lab22') _
+@Library('ivolve-lab23') _
 
 pipeline {
     agent { label 'lab22-agent' }
