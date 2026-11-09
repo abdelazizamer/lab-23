@@ -13,7 +13,7 @@ pipeline {
         stage('Build App') {
             steps {
                 script {
-                    this.buildApp()
+                    buildApp.call()
                 }
             }
         }
@@ -21,7 +21,7 @@ pipeline {
         stage('Build Image, Scan and Push') {
             steps {
                 script {
-                    this.buildImage()
+                    buildImage.call()
                 }
             }
         }
@@ -29,7 +29,7 @@ pipeline {
         stage('Update Manifest for Argo CD') {
             steps {
                 script {
-                    this.deployOnK8s()
+                    deployOnK8s.call()
                 }
             }
         }
